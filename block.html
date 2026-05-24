@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SEANLAB.net | 方塊拼圖大師 (Block Puzzle Master)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0f19;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* 禁用預設觸控手勢，防拉動畫面 */
+            overflow: hidden;
+        }
+
+        /* 玻璃擬態 */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* 備選區縮放縮圖 */
+        .block-preview-scale {
+            transform: scale(0.85);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @media (min-width: 768px) {
+            .block-preview-scale {
+                transform: scale(0.9);
+            }
+        }
+        .block-preview-scale:hover {
+            transform: scale(1.0) translateY(-4px) !important;
+        }
+
+        /* 消除時的閃爍動畫 */
+        @keyframes clear-pulse {
+            0% { 
+                transform: scale(1); 
+                filter: brightness(2.5) saturate(1.8); 
+                opacity: 1;
+                box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+            }
+            50% { 
+                transform: scale(1.15); 
+                filter: brightness(3.5); 
+                opacity: 0.9;
+                box-shadow: 0 0 24px rgba(255, 255, 255, 0.9), inset 0 0 12px rgba(255, 255, 255, 1);
+            }
+            100% { 
+                transform: scale(0); 
+                filter: brightness(1); 
+                opacity: 0;
+                box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+            }
+        }
+        .cell-clearing {
+            animation: clear-pulse 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            z-index: 10;
+        }
+
+        /* 炫酷消除粒子 */
+        .spark-particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            z-index: 100;
+            mix-blend-mode: screen;
+            animation: spark-fly 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        @keyframes spark-fly {
+            0% {
+                transform: translate(-50%, -50%) translate(0, 0) scale(1);
+                opacity: 1;
+                filter: brightness(2);
+            }
+            80% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* 棋盤震動特效 */
+        @keyframes board-shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            10% { transform: translate(-2px, -1px) rotate(-0.5deg); }
+            30% { transform: translate(1px, 2px) rotate(0.5deg); }
+            50% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+            70% { transform: translate(2px, -1px) rotate(0.5deg); }
+            90% { transform: translate(-1px, -2px) rotate(-0.5deg); }
+        }
+        .shake-active {
+            animation: board-shake 0.22s ease-in-out;
+        }
+
+        /* 飄浮分數 */
+        @keyframes float-up {
+            0% { transform: translateY(0) scale(0.8); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translateY(-70px) scale(1.15); opacity: 0; }
+        }
+        .floating-score {
+            position: absolute;
+            animation: float-up 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            pointer-events: none;
+            font-weight: 800;
+            z-index: 50;
+        }
+
+        /* 拖曳時原插槽方塊淡出 */
+        .dragging-active {
+            opacity: 0.15;
+            filter: grayscale(80%);
+            transition: opacity 0.15s ease;
+        }
+
+        /* 霓虹發光 */
+        .neon-glow-cyan {
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.15);
+        }
+        .neon-glow-indigo {
+            box-shadow: 0 0 35px rgba(99, 102, 241, 0.2);
+        }
+
+        /* 拖曳代理外觀 */
+        #drag-proxy {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0;
+            transform: scale(1.0);
+            transform-origin: center center;
+            transition: opacity 0.1s ease;
+        }
+
+        /* 移動時停用任何過渡，100%防殘影與卡頓 */
+        .no-transition, .no-transition * {
+            transition: none !important;
+        }
+
+        /* 滾動條樣式優化 */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 99px;
+        }
+
+        /* 針對短螢幕高度的響應式優化，防止 footer 遮擋或超出螢幕 */
+        @media (max-height: 720px) {
+            body {
+                padding: 0.5rem !important; /* 減少 body 內邊距 */
+            }
+            header {
+                margin-bottom: 0.125rem !important;
+            }
+            main {
+                gap: 0.5rem !important; /* 縮減 main 子元素間距 */
+                margin-top: 0.125rem !important;
+                margin-bottom: 0.125rem !important;
+            }
+            .pool-container-panel {
+                padding: 0.375rem 0.5rem !important; /* 縮減備選區內邊距 */
+            }
+            .pool-slot-grid {
+                height: 5.5rem !important; /* 稍微縮小備選方塊插槽高度 (88px) */
+            }
+            .hint-banner {
+                display: none !important; /* 在矮螢幕上隱藏提示以保留遊戲畫布高度 */
+            }
+        }
+        
+        @media (max-height: 645px) {
+            body {
+                padding: 0.375rem !important;
+            }
+            main {
+                gap: 0.375rem !important;
+            }
+            .size-selector-panel, .time-selector-panel {
+                font-size: 10px !important;
+                padding: 0.125rem !important;
+            }
+        }
+    </style>
+</head>
+<body class="h-[100dvh] text-slate-100 flex flex-col justify-between p-3 overflow-hidden select-none">
+
+    <!-- 頂部導覽列與 SeanLab 網域專屬 Logo -->
+    <header class="w-full max-w-md mx-auto flex justify-between items-center z-10 flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <!-- SL block logo svg -->
+            <div class="bg-slate-950/40 p-1.5 rounded-xl border border-slate-800/80 shadow-inner flex items-center justify-center">
+                <svg class="w-8 h-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="gradS" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#06b6d4" />
+                            <stop offset="100%" stop-color="#3b82f6" />
+                        </linearGradient>
+                        <linearGradient id="gradL" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#f97316" />
+                            <stop offset="100%" stop-color="#ea580c" />
+                        </linearGradient>
+                    </defs>
+                    <!-- 'S' Blocks -->
+                    <rect x="10" y="10" width="18" height="18" rx="4" fill="url(#gradS)" />
+                    <rect x="30" y="10" width="18" height="18" rx="4" fill="url(#gradS)" />
+                    <rect x="10" y="30" width="18" height="18" rx="4" fill="url(#gradS)" />
+                    <rect x="10" y="50" width="18" height="18" rx="4" fill="url(#gradS)" />
+                    <rect x="30" y="50" width="18" height="18" rx="4" fill="url(#gradS)" />
+                    <rect x="30" y="70" width="18" height="18" rx="4" fill="url(#gradS)" />
+                    <rect x="10" y="70" width="18" height="18" rx="4" fill="url(#gradS)" />
+                    <!-- 'L' Blocks -->
+                    <rect x="54" y="10" width="18" height="18" rx="4" fill="url(#gradL)" />
+                    <rect x="54" y="30" width="18" height="18" rx="4" fill="url(#gradL)" />
+                    <rect x="54" y="50" width="18" height="18" rx="4" fill="url(#gradL)" />
+                    <rect x="54" y="70" width="18" height="18" rx="4" fill="url(#gradL)" />
+                    <rect x="74" y="70" width="18" height="18" rx="4" fill="url(#gradL)" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-md font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-orange-400">
+                    SEANLAB<span class="text-xs text-orange-400 font-bold">.net</span>
+                </h1>
+                <p class="text-[7px] text-slate-400/90 font-bold tracking-widest uppercase">Block Puzzle Journey</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 md:gap-2.5">
+            <button id="btn-sound" class="p-2.5 md:p-3 rounded-2xl glass-panel text-slate-300 hover:text-white transition duration-200 text-sm md:text-base flex items-center justify-center" title="音效">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+            <button id="btn-leaderboard" class="p-2.5 md:p-3 rounded-2xl glass-panel text-amber-400 hover:text-amber-300 transition duration-200 text-sm md:text-base flex items-center justify-center" title="排行榜">
+                <i class="fa-solid fa-trophy"></i>
+            </button>
+            <button id="btn-rules" class="p-2.5 md:p-3 rounded-2xl glass-panel text-slate-300 hover:text-white transition duration-200 text-sm md:text-base flex items-center justify-center" title="規則">
+                <i class="fa-solid fa-circle-question"></i>
+            </button>
+            <button id="btn-reset" class="p-2 px-3 md:p-2.5 md:px-4 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 transition duration-200 font-bold text-sm md:text-base flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate-left"></i> 重玩
+            </button>
+        </div>
+    </header>
+
+    <!-- 主遊戲內容，利用 flex-grow 與 max-h 確保絕對不會溢出 -->
+    <main class="w-full max-w-md mx-auto flex-grow flex flex-col justify-center gap-2.5 my-1.5 overflow-hidden">
+        <!-- 分數統計面板 -->
+        <div class="grid grid-cols-3 gap-1.5 flex-shrink-0">
+            <!-- 當前分數 -->
+            <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 shadow-md border-slate-700/50">
+                <div class="bg-indigo-500/10 p-1.5 rounded-lg text-indigo-400 text-xs">
+                    <i class="fa-solid fa-star"></i>
+                </div>
+                <div>
+                    <span class="text-[7px] uppercase tracking-wider text-slate-400 font-semibold block">SCORE</span>
+                    <span id="score-text" class="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">0</span>
+                </div>
+            </div>
+            <!-- 倒數計時 (5分鐘) -->
+            <div id="timer-panel" class="glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 shadow-md border-slate-700/50 transition-colors duration-300">
+                <div id="timer-icon" class="bg-cyan-500/10 p-1.5 rounded-lg text-cyan-400 text-xs animate-pulse">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+                <div>
+                    <span class="text-[7px] uppercase tracking-wider text-slate-400 font-semibold block">TIME</span>
+                    <span id="timer-text" class="text-xs font-black text-cyan-300">05:00</span>
+                </div>
+            </div>
+            <!-- 最高紀錄 -->
+            <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 shadow-md border-slate-700/50">
+                <div class="bg-amber-500/10 p-1.5 rounded-lg text-amber-400 text-xs">
+                    <i class="fa-solid fa-medal"></i>
+                </div>
+                <div>
+                    <span class="text-[7px] uppercase tracking-wider text-slate-400 font-semibold block">BEST</span>
+                    <span id="best-score" class="text-xs font-black text-amber-300">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 空間模式選擇器 (5x5, 9x9, 12x12) -->
+        <div class="size-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[11px] font-bold shadow-inner border-slate-800 flex-shrink-0">
+            <button data-size="5" class="size-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-emerald-500"></span> 5 × 5 快速
+            </button>
+            <button data-size="9" class="size-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1 bg-indigo-600 text-white shadow-md shadow-indigo-500/10">
+                <span class="w-1 h-1 rounded-full bg-indigo-400 animate-pulse"></span> 9 × 9 經典
+            </button>
+            <button data-size="12" class="size-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-cyan-400"></span> 12 × 12 挑戰
+            </button>
+        </div>
+
+        <!-- 時間模式選擇器 (無限時間, 5分鐘挑戰) -->
+        <div class="time-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[11px] font-bold shadow-inner border-slate-800 flex-shrink-0">
+            <button data-mode="infinite" class="time-mode-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-indigo-600 shadow-md shadow-indigo-500/10 transition-all duration-300 flex items-center justify-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-indigo-400 animate-pulse"></span> <i class="fa-solid fa-infinity text-[10px]"></i> 無限時間
+            </button>
+            <button data-mode="timed" class="time-mode-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-cyan-400"></span> <i class="fa-solid fa-clock text-[10px]"></i> 5分鐘挑戰
+            </button>
+        </div>
+
+        <!-- 難度選擇器 (簡單, 經典, 困難) -->
+        <div class="difficulty-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[11px] font-bold shadow-inner border-slate-800 flex-shrink-0">
+            <button data-diff="easy" class="diff-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-emerald-500"></span> 簡單模式
+            </button>
+            <button data-diff="classic" class="diff-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-indigo-600 shadow-md shadow-indigo-500/10 transition-all duration-300 flex items-center justify-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-indigo-400 animate-pulse"></span> 經典模式
+            </button>
+            <button data-diff="hard" class="diff-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-rose-500"></span> 困難挑戰
+            </button>
+        </div>
+
+        <!-- 遊戲主畫布與容器 -->
+        <div id="board-container" class="relative w-full aspect-square glass-panel p-2 rounded-2xl shadow-2xl border-slate-700/60 neon-glow-cyan flex items-center justify-center mx-auto" style="max-height: calc(100dvh - 395px); max-width: calc(100dvh - 395px);">
+            <!-- 遊戲格子盤面 -->
+            <div id="game-board" class="grid w-full h-full gap-[3px] md:gap-[4px] relative select-none">
+                <!-- 由 JavaScript 動態生成格數 -->
+            </div>
+            
+            <!-- 連擊(Combo)動畫提示 -->
+            <div id="combo-alert" class="absolute pointer-events-none transform scale-0 transition-transform duration-300 ease-out flex flex-col items-center justify-center z-30">
+                <div class="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white font-black px-4 py-1.5 rounded-full shadow-xl text-xs flex items-center gap-1.5">
+                    <i class="fa-solid fa-fire text-amber-200 animate-bounce"></i>
+                    <span id="combo-text">COMBO ×2</span>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- 底部備選方塊等待區 -->
+        <div class="pool-container-panel glass-panel p-2 rounded-2xl shadow-lg border-slate-700/50 flex flex-col gap-1 flex-shrink-0">
+            <div class="flex justify-between items-center px-1">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    <i class="fa-solid fa-lightbulb text-amber-400 animate-pulse"></i> 備選方塊
+                </span>
+                <span id="blocks-count" class="text-[8px] bg-slate-800 px-1.5 py-0.5 rounded-full font-bold text-slate-300">3 剩餘</span>
+            </div>
+            
+            <!-- 放置方塊的卡槽 -->
+            <div class="pool-slot-grid grid grid-cols-3 gap-2 h-[96px] md:h-[112px] relative">
+                <div id="pool-slot-0" class="pool-slot relative flex items-center justify-center bg-slate-800/20 border border-dashed border-slate-700/40 rounded-xl overflow-visible"></div>
+                <div id="pool-slot-1" class="pool-slot relative flex items-center justify-center bg-slate-800/20 border border-dashed border-slate-700/40 rounded-xl overflow-visible"></div>
+                <div id="pool-slot-2" class="pool-slot relative flex items-center justify-center bg-slate-800/20 border border-dashed border-slate-700/40 rounded-xl overflow-visible"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-md mx-auto flex justify-between items-center px-2 py-1.5 text-[9px] text-slate-500 font-semibold tracking-wider flex-shrink-0 border-t border-slate-800/40 mt-1">
+        <div class="flex items-center gap-1.5">
+            <span>&copy; 2026</span>
+            <span class="text-slate-850">|</span>
+            <a href="https://seanlab.net" target="_blank" class="bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent hover:brightness-125 transition-all duration-300 flex items-center gap-0.5 font-bold group">
+                SEANLAB.NET
+                <i class="fa-solid fa-arrow-up-right-from-square text-[7px] text-cyan-400/85 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200"></i>
+            </a>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="https://seanlab.net" target="_blank" class="group transition-all duration-300 flex items-center gap-1" title="探索實驗室">
+                <i class="fa-solid fa-flask text-[10px] text-slate-500 group-hover:text-cyan-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
+            </a>
+            <a href="https://seanlab.net/games" target="_blank" class="group transition-all duration-300 flex items-center gap-1" title="更多遊戲">
+                <i class="fa-solid fa-gamepad text-[10px] text-slate-500 group-hover:text-emerald-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
+            </a>
+            <a href="mailto:contact@seanlab.net" class="group transition-all duration-300 flex items-center gap-1" title="與我們聯絡">
+                <i class="fa-regular fa-envelope text-[10px] text-slate-500 group-hover:text-purple-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
+            </a>
+        </div>
+    </footer>
+
+    <!-- 遊戲結束對話框 -->
+    <div id="game-over-modal" class="fixed inset-0 bg-slate-950/90 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-panel p-5 rounded-2xl max-w-xs w-full text-center border-indigo-500/30 shadow-2xl transform scale-95 transition-all duration-300">
+            <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-2 border border-rose-500/20 text-xl">
+                <i id="game-over-icon" class="fa-solid fa-skull-crossbones animate-wiggle"></i>
+            </div>
+            <h2 id="game-over-title" class="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200 mb-1">
+                沒有可放置的空間了！
+            </h2>
+            <p id="game-over-desc" class="text-[10px] text-slate-400 mb-3 font-medium">本次挑戰圓滿結束，表現精彩！</p>
+            
+            <!-- 分數統計 -->
+            <div class="bg-slate-850/50 rounded-xl p-2.5 border border-slate-750 mb-3 flex flex-col gap-1 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 font-bold">最終得分</span>
+                    <span id="final-score" class="text-lg font-black text-white">0</span>
+                </div>
+                <div class="flex justify-between items-center border-t border-slate-700/50 pt-1">
+                    <span class="text-slate-400 font-bold">歷史最高紀錄</span>
+                    <span id="modal-best" class="text-xs font-black text-amber-300">0</span>
+                </div>
+            </div>
+
+            <!-- 榮登前十名姓名輸入框 -->
+            <div id="new-highscore-section" class="hidden bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3 mb-3 text-left">
+                <span class="text-[9px] text-indigo-400 font-bold uppercase tracking-wider block mb-1">🔥 恭喜榮登前 10 名排行榜！</span>
+                <p class="text-[10px] text-slate-300 mb-2">請輸入您的姓名以載入名人堂：</p>
+                <div class="flex gap-1.5">
+                    <input type="text" id="player-name-input" maxlength="12" placeholder="匿名冒險者" class="flex-grow bg-slate-900 border border-slate-700 focus:border-indigo-400 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-500 outline-none">
+                    <button id="btn-submit-score" class="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold px-3 py-1 rounded-lg text-xs hover:scale-105 active:scale-95 transition-all">送出</button>
+                </div>
+            </div>
+            
+            <button id="modal-restart" class="w-full py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-extrabold shadow-lg shadow-indigo-500/25 transition-all duration-300 text-xs">
+                <i class="fa-solid fa-rotate-left mr-1"></i> 重新開始挑戰
+            </button>
+        </div>
+    </div>
+
+    <!-- 排行榜對話框 -->
+    <div id="leaderboard-modal" class="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-panel p-4 rounded-2xl max-w-xs w-full border-slate-700/60 shadow-2xl transform scale-95 transition-all duration-300">
+            <div class="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-700/40">
+                <div>
+                    <h3 class="text-xs font-extrabold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-trophy text-amber-400"></i>
+                        榮譽名人堂 (前 10 名)
+                    </h3>
+                    <span id="leaderboard-subtitle" class="text-[9px] text-indigo-400 font-bold block mt-0.5">無限時間模式</span>
+                </div>
+                <button id="btn-close-leaderboard" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+            
+            <!-- 尺寸過濾標籤 -->
+            <div class="flex gap-1 mb-2.5 text-[9px] font-bold">
+                <button data-filter="5" class="leaderboard-tab-btn flex-1 py-1 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition">5x5 快速</button>
+                <button data-filter="9" class="leaderboard-tab-btn flex-1 py-1 rounded bg-indigo-600 text-white shadow">9x9 經典</button>
+                <button data-filter="12" class="leaderboard-tab-btn flex-1 py-1 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition">12x12 挑戰</button>
+            </div>
+
+            <!-- 名單容器 -->
+            <div id="leaderboard-list" class="space-y-1 max-h-56 overflow-y-auto pr-1">
+                <!-- 由 JavaScript 動態生成排榜 -->
+            </div>
+
+            <button id="btn-leaderboard-ok" class="w-full mt-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold transition duration-200 text-xs">
+                關閉名人堂
+            </button>
+        </div>
+    </div>
+
+    <!-- 規則說明對話框 -->
+    <div id="rules-modal" class="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-panel p-4 rounded-2xl max-w-xs w-full border-slate-700/60 shadow-2xl transform scale-95 transition-all duration-300">
+            <div class="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-700/40">
+                <h3 class="text-xs font-extrabold text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-question text-indigo-400"></i> 遊戲規則與得分祕技
+                </h3>
+                <button id="btn-close-rules" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+            <div class="space-y-2 text-[10px] text-slate-300 leading-relaxed max-h-72 overflow-y-auto pr-1">
+                <div class="flex gap-2 bg-slate-800/40 p-2 rounded-lg border border-slate-700/30">
+                    <div class="text-indigo-400 mt-0.5"><i class="fa-solid fa-chess-board"></i></div>
+                    <p>自由選擇 <strong>5x5、9x9 或 12x12</strong> 規格。小規格會自動篩選大型方塊以防秒GG。</p>
+                </div>
+                <div class="flex gap-2 bg-slate-800/40 p-2 rounded-lg border border-slate-700/30">
+                    <div class="text-emerald-400 mt-0.5"><i class="fa-solid fa-sliders"></i></div>
+                    <p><strong>三種難度與旋轉機制：</strong><br>
+                        • <strong>簡單：</strong>無 1x5 等長條或大方塊，<strong>支援點擊方塊右上角箭頭進行旋轉</strong>！且旋轉擺得下就不會 Game Over。<br>
+                        • <strong>經典：</strong>預設的標準 20 種大小方塊（不可旋轉）。<br>
+                        • <strong>困難：</strong>高機率生成大方塊，並新增 2x3 磚塊、Z/S 型俄羅斯方塊等卡手重磅考驗！
+                    </p>
+                </div>
+                <div class="flex gap-2 bg-slate-800/40 p-2 rounded-lg border border-slate-700/30">
+                    <div class="text-rose-400 mt-0.5"><i class="fa-solid fa-stopwatch animate-pulse"></i></div>
+                    <p><strong>兩種時間模式：</strong><br>
+                        • <strong>無限時間：</strong>無時間壓力，玩到棋盤無法放置方塊為止。<br>
+                        • <strong>5 分鐘挑戰：</strong>限時 300 秒！必須在時間耗盡前取得最高分。
+                    </p>
+                </div>
+                <div class="flex gap-2 bg-slate-800/40 p-2 rounded-lg border border-slate-700/30">
+                    <div class="text-amber-400 mt-0.5"><i class="fa-solid fa-arrows-up-down-left-right"></i></div>
+                    <p>等待區每次會隨機刷新 <strong>3 個方塊</strong>。全部放滿才會發放新一輪。</p>
+                </div>
+                <div class="flex gap-2 bg-slate-800/40 p-2 rounded-lg border border-slate-700/30">
+                    <div class="text-emerald-400 mt-0.5"><i class="fa-solid fa-bolt"></i></div>
+                    <p>任何時候<strong>填滿整行或整列</strong>便能將其消除，並獲得分數！</p>
+                </div>
+                <div class="flex gap-2 bg-slate-800/40 p-2 rounded-lg border border-slate-700/30">
+                    <div class="text-cyan-400 mt-0.5"><i class="fa-solid fa-fire"></i></div>
+                    <p><strong>連消倍數計分：</strong><br>
+                        • 1 行：<strong>100 分</strong><br>
+                        • 2 行：<strong>400 分</strong> (100 * 2²)<br>
+                        • 3 行：<strong>900 分</strong> (100 * 3²)<br>
+                        • 4 行：<strong>1600 分</strong> (100 * 4²)<br>
+                        <span class="text-[9px] text-amber-300/80 italic">技巧：多向同時疊加消除可解鎖超高回報！</span>
+                    </p>
+                </div>
+            </div>
+            <button id="btn-rules-ok" class="w-full mt-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold transition duration-200 text-xs">
+                我明白了，開始玩！
+            </button>
+        </div>
+    </div>
+
+    <!-- 拖曳專用的半透明虛擬代理元素 -->
+    <div id="drag-proxy"></div>
+
+    <script>
+        // WEB AUDIO API 合成音效引擎
+        const AudioEngine = {
+            ctx: null,
+            enabled: true,
+            init() {
+                try {
+                    if (!this.ctx) {
+                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContextClass) {
+                            this.ctx = new AudioContextClass();
+                        }
+                    }
+                    if (this.ctx) {
+                        if (this.ctx.state === 'suspended') {
+                            this.ctx.resume().catch(err => console.log('Audio resume failed:', err));
+                        }
+                        // 播放極短的靜音 Buffer 以喚醒 iOS/Safari 的音訊管道
+                        try {
+                            const buffer = this.ctx.createBuffer(1, 1, 22050);
+                            const source = this.ctx.createBufferSource();
+                            source.buffer = buffer;
+                            source.connect(this.ctx.destination);
+                            source.start(0);
+                        } catch (e) {
+                            console.log('Priming silent buffer failed:', e);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('AudioContext init failed:', e);
+                }
+            },
+            toggle() {
+                this.enabled = !this.enabled;
+                const icon = document.querySelector('#btn-sound i');
+                if (this.enabled) {
+                    icon.className = 'fa-solid fa-volume-high';
+                } else {
+                    icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+                }
+            },
+            playPlacement() {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const ctx = this.ctx;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(160, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(340, ctx.currentTime + 0.1);
+                    
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.12);
+                } catch (e) {
+                    console.warn('playPlacement failed:', e);
+                }
+            },
+            playClear(comboCount = 1) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const ctx = this.ctx;
+                    const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // 階梯和弦
+                    const pitchShift = Math.min(comboCount - 1, notes.length - 1);
+                    const baseFreq = notes[pitchShift];
+
+                    [baseFreq, baseFreq * 1.5].forEach((freq, index) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.04);
+                        osc.frequency.exponentialRampToValueAtTime(freq * 2, ctx.currentTime + 0.2 + index * 0.04);
+                        
+                        gain.gain.setValueAtTime(0.2, ctx.currentTime + index * 0.04);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25 + index * 0.04);
+                        
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + index * 0.04);
+                        osc.stop(ctx.currentTime + 0.3 + index * 0.04);
+                    });
+                } catch (e) {
+                    console.warn('playClear failed:', e);
+                }
+            },
+            playGameOver() {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const ctx = this.ctx;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(70, ctx.currentTime + 0.5);
+                    
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.55);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.55);
+                } catch (e) {
+                    console.warn('playGameOver failed:', e);
+                }
+            },
+            playSelect() {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const ctx = this.ctx;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(420, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(580, ctx.currentTime + 0.04);
+                    
+                    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.06);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.06);
+                } catch (e) {
+                    console.warn('playSelect failed:', e);
+                }
+            }
+        };
+
+        // 方塊形狀庫
+        const BLOCK_TEMPLATES = {
+            // 5x5 小型方塊
+            small: [
+                { shape: [[1]], color: '#fbbf24' }, // 1x1 黃
+                { shape: [[1, 1]], color: '#f87171' }, // 1x2 紅
+                { shape: [[1], [1]], color: '#f87171' }, 
+                { shape: [[1, 1], [1, 1]], color: '#60a5fa' }, // 2x2 藍
+                { shape: [[1, 0], [1, 1]], color: '#34d399' }, // L
+                { shape: [[1, 1], [1, 0]], color: '#34d399' },
+                { shape: [[0, 1], [1, 1]], color: '#34d399' },
+                { shape: [[1, 1], [0, 1]], color: '#34d399' }
+            ],
+            // 簡單模式（9x9 與 12x12，排除 1x5/5x1、3x3 巨型 L/T 等卡手的大方塊）
+            easy: [
+                { shape: [[1]], color: '#fbbf24' }, // 1x1
+                { shape: [[1, 1]], color: '#f87171' }, // 1x2
+                { shape: [[1], [1]], color: '#f87171' },
+                { shape: [[1, 1, 1]], color: '#f472b6' }, // 1x3
+                { shape: [[1], [1], [1]], color: '#f472b6' },
+                { shape: [[1, 1, 1, 1]], color: '#a78bfa' }, // 1x4
+                { shape: [[1], [1], [1], [1]], color: '#a78bfa' },
+                { shape: [[1, 1], [1, 1]], color: '#60a5fa' }, // 2x2
+                // 折角 (2x2 bounding box)
+                { shape: [[1, 1], [1, 0]], color: '#06b6d4' },
+                { shape: [[1, 1], [0, 1]], color: '#06b6d4' },
+                { shape: [[1, 0], [1, 1]], color: '#06b6d4' },
+                { shape: [[0, 1], [1, 1]], color: '#06b6d4' }
+            ],
+            // 經典模式（9x9 與 12x12，預設）
+            classic: [
+                { shape: [[1]], color: '#fbbf24' }, // 1x1
+                { shape: [[1, 1]], color: '#f87171' }, // 1x2
+                { shape: [[1], [1]], color: '#f87171' },
+                { shape: [[1, 1, 1]], color: '#f472b6' }, // 1x3
+                { shape: [[1], [1], [1]], color: '#f472b6' },
+                { shape: [[1, 1, 1, 1]], color: '#a78bfa' }, // 1x4
+                { shape: [[1], [1], [1], [1]], color: '#a78bfa' },
+                { shape: [[1, 1, 1, 1, 1]], color: '#c084fc' }, // 1x5
+                { shape: [[1], [1], [1], [1], [1]], color: '#c084fc' },
+                { shape: [[1, 1], [1, 1]], color: '#60a5fa' }, // 2x2
+                // L型 (包含橫向與縱向的向上/向下版本)
+                { shape: [[1, 0, 0], [1, 1, 1]], color: '#f59e0b' },
+                { shape: [[0, 0, 1], [1, 1, 1]], color: '#f59e0b' },
+                { shape: [[1, 1, 1], [1, 0, 0]], color: '#f59e0b' },
+                { shape: [[1, 1, 1], [0, 0, 1]], color: '#f59e0b' },
+                { shape: [[1, 0], [1, 0], [1, 1]], color: '#f59e0b' }, // 縱向 L 指向右下 (向下)
+                { shape: [[0, 1], [0, 1], [1, 1]], color: '#f59e0b' }, // 縱向 L 指向左下 (向下)
+                { shape: [[1, 1], [1, 0], [1, 0]], color: '#f59e0b' }, // 縱向 L 指向右上 (向上)
+                { shape: [[1, 1], [0, 1], [0, 1]], color: '#f59e0b' }, // 縱向 L 指向左上 (向上)
+                // T型
+                { shape: [[1, 1, 1], [0, 1, 0]], color: '#10b981' },
+                { shape: [[0, 1, 0], [1, 1, 1]], color: '#10b981' },
+                { shape: [[1, 0], [1, 1], [1, 0]], color: '#10b981' },
+                { shape: [[0, 1], [1, 1], [0, 1]], color: '#10b981' },
+                // 折角
+                { shape: [[1, 1], [1, 0]], color: '#06b6d4' },
+                { shape: [[1, 1], [0, 1]], color: '#06b6d4' },
+                { shape: [[1, 0], [1, 1]], color: '#06b6d4' },
+                { shape: [[0, 1], [1, 1]], color: '#06b6d4' }
+            ],
+            // 困難挑戰（9x9 與 12x12，高難度，加入 S/Z 型俄羅斯方塊及 2x3 長方塊）
+            hard: [
+                { shape: [[1, 1, 1, 1]], color: '#a78bfa' }, // 1x4
+                { shape: [[1], [1], [1], [1]], color: '#a78bfa' },
+                { shape: [[1, 1, 1, 1, 1]], color: '#c084fc' }, // 1x5
+                { shape: [[1], [1], [1], [1], [1]], color: '#c084fc' },
+                { shape: [[1, 1], [1, 1]], color: '#60a5fa' }, // 2x2
+                // 2x3 長方塊
+                { shape: [[1, 1, 1], [1, 1, 1]], color: '#6366f1' },
+                { shape: [[1, 1], [1, 1], [1, 1]], color: '#6366f1' },
+                // L型 (包含橫向與縱向的向上/向下版本)
+                { shape: [[1, 0, 0], [1, 1, 1]], color: '#f59e0b' },
+                { shape: [[0, 0, 1], [1, 1, 1]], color: '#f59e0b' },
+                { shape: [[1, 1, 1], [1, 0, 0]], color: '#f59e0b' },
+                { shape: [[1, 1, 1], [0, 0, 1]], color: '#f59e0b' },
+                { shape: [[1, 0], [1, 0], [1, 1]], color: '#f59e0b' }, // 縱向 L 指向右下 (向下)
+                { shape: [[0, 1], [0, 1], [1, 1]], color: '#f59e0b' }, // 縱向 L 指向左下 (向下)
+                { shape: [[1, 1], [1, 0], [1, 0]], color: '#f59e0b' }, // 縱向 L 指向右上 (向上)
+                { shape: [[1, 1], [0, 1], [0, 1]], color: '#f59e0b' }, // 縱向 L 指向左上 (向上)
+                // T型
+                { shape: [[1, 1, 1], [0, 1, 0]], color: '#10b981' },
+                { shape: [[0, 1, 0], [1, 1, 1]], color: '#10b981' },
+                { shape: [[1, 0], [1, 1], [1, 0]], color: '#10b981' },
+                { shape: [[0, 1], [1, 1], [0, 1]], color: '#10b981' },
+                // 折角
+                { shape: [[1, 1], [1, 0]], color: '#06b6d4' },
+                { shape: [[1, 1], [0, 1]], color: '#06b6d4' },
+                { shape: [[1, 0], [1, 1]], color: '#06b6d4' },
+                { shape: [[0, 1], [1, 1]], color: '#06b6d4' },
+                // Z/S 型俄羅斯方塊
+                { shape: [[1, 1, 0], [0, 1, 1]], color: '#ec4899' },
+                { shape: [[0, 1, 1], [1, 1, 0]], color: '#ec4899' },
+                { shape: [[1, 0], [1, 1], [0, 1]], color: '#ec4899' },
+                { shape: [[0, 1], [1, 1], [1, 0]], color: '#ec4899' }
+            ]
+        };
+
+        class BlockPuzzle {
+            constructor() {
+                this.size = 9; 
+                this.board = [];
+                this.score = 0;
+                this.gameMode = 'infinite'; // 預設為無限時間模式
+                this.difficulty = localStorage.getItem('block_puzzle_difficulty') || 'classic'; // 從 localStorage 載入難度
+                this.highScore = 0; // 將在 init() 載入
+                this.pool = [null, null, null];
+                this.selectedPoolIndex = null; 
+                
+                this.timeLeft = Infinity; 
+                this.timerInterval = null;
+                this.isGameActive = false;
+                this.isPausedByModal = false; // 記錄是否因彈出視窗而暫停
+                
+                // 拖曳狀態管理
+                this.dragState = {
+                    isDragging: false,
+                    poolIndex: null,
+                    startX: 0,
+                    startY: 0,
+                    offsetX: 0,
+                    offsetY: 0
+                };
+            }
+
+            getHighScoreKey() {
+                if (this.size === 9 && this.gameMode === 'infinite' && this.difficulty === 'classic') {
+                    return 'block_puzzle_best';
+                }
+                return `block_puzzle_best_${this.size}_${this.gameMode}_${this.difficulty}`;
+            }
+
+            init(size) {
+                this.size = size;
+                this.board = Array.from({ length: size }, () => Array(size).fill(0));
+                this.score = 0;
+                this.selectedPoolIndex = null;
+                this.generateNewPool();
+                
+                this.highScore = parseInt(localStorage.getItem(this.getHighScoreKey()) || '0', 10);
+                this.isPausedByModal = false; // 重設暫停狀態
+                
+                this.resetTimer();
+                this.updateUI();
+            }
+
+            // 啟動或重新設計時器
+            resetTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+                this.isGameActive = true;
+
+                if (this.gameMode === 'infinite') {
+                    this.timeLeft = Infinity;
+                    this.updateTimerUI();
+                } else {
+                    this.timeLeft = 300; // 5 分鐘 = 300 秒
+                    this.updateTimerUI();
+
+                    this.timerInterval = setInterval(() => {
+                        if (!this.isGameActive) return;
+                        this.timeLeft--;
+                        this.updateTimerUI();
+
+                        if (this.timeLeft <= 0) {
+                            this.timeLeft = 0;
+                            clearInterval(this.timerInterval);
+                            this.timerInterval = null;
+                            this.isGameActive = false;
+                            AudioEngine.playGameOver();
+                            this.showGameOver("TIME_UP");
+                        }
+                    }, 1000);
+                }
+            }
+
+            // 更新倒數計時 UI 與色彩警告
+            updateTimerUI() {
+                const timerTextEl = document.getElementById('timer-text');
+                const timerPanelEl = document.getElementById('timer-panel');
+                const timerIconEl = document.getElementById('timer-icon');
+
+                if (!timerTextEl) return;
+
+                const iconIEl = timerIconEl ? timerIconEl.querySelector('i') : null;
+
+                if (this.gameMode === 'infinite') {
+                    timerTextEl.innerText = "無限";
+                    timerTextEl.className = "text-xs font-black text-cyan-300";
+                    if (timerPanelEl) timerPanelEl.className = "glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 shadow-md border-slate-700/50";
+                    if (timerIconEl) timerIconEl.className = "bg-cyan-500/10 p-1.5 rounded-lg text-cyan-400 text-xs animate-pulse";
+                    if (iconIEl) iconIEl.className = "fa-solid fa-infinity";
+                    return;
+                }
+
+                if (iconIEl) iconIEl.className = "fa-solid fa-clock";
+
+                const minutes = Math.floor(this.timeLeft / 60);
+                const seconds = this.timeLeft % 60;
+                const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                timerTextEl.innerText = formattedTime;
+
+                // 根據剩餘時間切換警告樣式
+                if (this.timeLeft <= 60) { // 剩餘小於 1 分鐘 (紅色急速躍動)
+                    timerTextEl.className = "text-xs font-black text-rose-500 animate-pulse";
+                    if (timerPanelEl) timerPanelEl.className = "glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 shadow-md border-rose-500/40 bg-rose-950/20";
+                    if (timerIconEl) timerIconEl.className = "bg-rose-500/10 p-1.5 rounded-lg text-rose-500 text-xs animate-bounce";
+                } else if (this.timeLeft <= 120) { // 剩餘小於 2 分鐘 (黃色警告)
+                    timerTextEl.className = "text-xs font-black text-amber-400";
+                    if (timerPanelEl) timerPanelEl.className = "glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 shadow-md border-amber-500/30 bg-amber-950/10";
+                    if (timerIconEl) timerIconEl.className = "bg-amber-500/10 p-1.5 rounded-lg text-amber-400 text-xs animate-pulse";
+                } else { // 正常狀態 (青藍色)
+                    timerTextEl.className = "text-xs font-black text-cyan-300";
+                    if (timerPanelEl) timerPanelEl.className = "glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 shadow-md border-slate-700/50";
+                    if (timerIconEl) timerIconEl.className = "bg-cyan-500/10 p-1.5 rounded-lg text-cyan-400 text-xs animate-pulse";
+                }
+            }
+
+            generateNewPool() {
+                const templates = this.size === 5 ? BLOCK_TEMPLATES.small : (BLOCK_TEMPLATES[this.difficulty] || BLOCK_TEMPLATES.classic);
+                for (let i = 0; i < 3; i++) {
+                    const randomIndex = Math.floor(Math.random() * templates.length);
+                    this.pool[i] = JSON.parse(JSON.stringify(templates[randomIndex]));
+                }
+            }
+
+            canPlace(shape, startRow, startCol) {
+                for (let r = 0; r < shape.length; r++) {
+                    for (let c = 0; c < shape[r].length; c++) {
+                        if (shape[r][c] === 1) {
+                            const targetRow = startRow + r;
+                            const targetCol = startCol + c;
+
+                            if (targetRow < 0 || targetRow >= this.size || targetCol < 0 || targetCol >= this.size) {
+                                return false;
+                            }
+                            if (this.board[targetRow][targetCol] !== 0) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            placeBlock(poolIndex, startRow, startCol) {
+                if (!this.isGameActive) {
+                    return false;
+                }
+                const block = this.pool[poolIndex];
+                if (!block || !this.canPlace(block.shape, startRow, startCol)) {
+                    return false;
+                }
+
+                // 填入格子
+                for (let r = 0; r < block.shape.length; r++) {
+                    for (let c = 0; c < block.shape[r].length; c++) {
+                        if (block.shape[r][c] === 1) {
+                            this.board[startRow + r][startCol + c] = block.color;
+                        }
+                    }
+                }
+
+                // 計算放置分數：方塊格數 * 12 + 7 (例如：4格 => 55分；3格 => 43分)
+                const cellSize = block.shape.flat().filter(cell => cell === 1).length;
+                const placementScore = cellSize * 12 + 7;
+                this.score += placementScore;
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    localStorage.setItem(this.getHighScoreKey(), this.highScore);
+                }
+
+                this.pool[poolIndex] = null;
+                AudioEngine.playPlacement();
+
+                // 取得放置格子的相對位置，用來飄浮顯示放置分數
+                setTimeout(() => {
+                    const firstCell = document.querySelector(`[data-row="${startRow}"][data-col="${startCol}"]`);
+                    if (firstCell) {
+                        const container = document.getElementById('board-container');
+                        if (container) {
+                            const rect = firstCell.getBoundingClientRect();
+                            const containerRect = container.getBoundingClientRect();
+                            const x = rect.left - containerRect.left + rect.width / 2;
+                            const y = rect.top - containerRect.top + rect.height / 2;
+                            this.spawnFloatingScore(placementScore, x, y, true);
+                        }
+                    }
+                }, 50);
+
+                // 掃描消除與計分
+                this.checkLinesAndClear();
+
+                // 若全空則刷新
+                if (this.pool.every(b => b === null)) {
+                    this.generateNewPool();
+                }
+
+                this.selectedPoolIndex = null;
+                this.updateUI();
+
+                if (this.isGameOver()) {
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.isGameActive = false;
+                    AudioEngine.playGameOver();
+                    this.showGameOver("NO_SPACE");
+                }
+
+                return true;
+            }
+
+            checkLinesAndClear() {
+                const rowsToClear = [];
+                const colsToClear = [];
+
+                for (let r = 0; r < this.size; r++) {
+                    if (this.board[r].every(cell => cell !== 0)) {
+                        rowsToClear.push(r);
+                    }
+                }
+
+                for (let c = 0; c < this.size; c++) {
+                    let isColFull = true;
+                    for (let r = 0; r < this.size; r++) {
+                        if (this.board[r][c] === 0) {
+                            isColFull = false;
+                            break;
+                        }
+                    }
+                    if (isColFull) {
+                        colsToClear.push(c);
+                    }
+                }
+
+                const totalLines = rowsToClear.length + colsToClear.length;
+
+                if (totalLines > 0) {
+                    // 炫酷街機計分公式（非整數）：147 * 線條平方 + 線條 * 23 + 19
+                    const earnedScore = 147 * Math.pow(totalLines, 2) + totalLines * 23 + 19;
+                    this.score += earnedScore;
+
+                    if (this.score > this.highScore) {
+                        this.highScore = this.score;
+                        localStorage.setItem(this.getHighScoreKey(), this.highScore);
+                    }
+
+                    this.spawnFloatingScore(earnedScore);
+                    AudioEngine.playClear(totalLines);
+                    if (totalLines >= 2) {
+                        this.triggerComboAlert(totalLines, earnedScore);
+                    }
+
+                    this.animateClear(rowsToClear, colsToClear);
+                }
+            }
+
+            animateClear(rowsToClear, colsToClear) {
+                const cellsToAnimate = [];
+                
+                rowsToClear.forEach(r => {
+                    for (let c = 0; c < this.size; c++) {
+                        cellsToAnimate.push({ r, c });
+                    }
+                });
+
+                colsToClear.forEach(c => {
+                    for (let r = 0; r < this.size; r++) {
+                        if (!rowsToClear.includes(r)) {
+                            cellsToAnimate.push({ r, c });
+                        }
+                    }
+                });
+
+                // 啟動棋盤震動特效
+                const boardContainer = document.getElementById('board-container');
+                if (boardContainer) {
+                    boardContainer.classList.add('shake-active');
+                    setTimeout(() => {
+                        boardContainer.classList.remove('shake-active');
+                    }, 250);
+                }
+
+                cellsToAnimate.forEach(pos => {
+                    const cellEl = document.querySelector(`[data-row="${pos.r}"][data-col="${pos.c}"]`);
+                    if (cellEl) {
+                        const originalColor = cellEl.style.backgroundColor;
+                        cellEl.classList.add('cell-clearing');
+                        
+                        // 產生炫酷爆炸粒子火花
+                        this.createSparks(cellEl, originalColor);
+                    }
+                });
+
+                setTimeout(() => {
+                    rowsToClear.forEach(r => this.board[r].fill(0));
+                    colsToClear.forEach(c => {
+                        for (let r = 0; r < this.size; r++) {
+                            this.board[r][c] = 0;
+                        }
+                    });
+                    this.updateUI();
+                }, 330);
+            }
+
+            createSparks(cellEl, color) {
+                const container = document.getElementById('board-container');
+                if (!container) return;
+
+                // 取得格子在 board-container 中的相對位置
+                const rect = cellEl.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                
+                const centerX = rect.left - containerRect.left + rect.width / 2;
+                const centerY = rect.top - containerRect.top + rect.height / 2;
+
+                const sparkCount = 8; // 每個格子產生 8 個火花
+                for (let i = 0; i < sparkCount; i++) {
+                    const spark = document.createElement('div');
+                    spark.className = 'spark-particle';
+                    
+                    // 隨機大小
+                    const size = 4 + Math.random() * 6; // 4px 到 10px
+                    spark.style.width = `${size}px`;
+                    spark.style.height = `${size}px`;
+                    
+                    // 設定顏色與亮麗光暈
+                    spark.style.backgroundColor = color || '#a5b4fc';
+                    spark.style.boxShadow = `0 0 8px ${color || '#a5b4fc'}`;
+                    
+                    // 起始位置
+                    spark.style.left = `${centerX}px`;
+                    spark.style.top = `${centerY}px`;
+                    
+                    // 飛散向量
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 30 + Math.random() * 45; // 飛散距離
+                    const tx = `${Math.cos(angle) * speed}px`;
+                    const ty = `${Math.sin(angle) * speed}px`;
+                    
+                    spark.style.setProperty('--tx', tx);
+                    spark.style.setProperty('--ty', ty);
+                    
+                    container.appendChild(spark);
+                    
+                    // 動畫結束後移除
+                    setTimeout(() => {
+                        spark.remove();
+                    }, 600);
+                }
+            }
+
+            getRotations(shape) {
+                const rotations = [shape];
+                let current = shape;
+                for (let i = 0; i < 3; i++) {
+                    const r = current.length;
+                    const c = current[0].length;
+                    const rotated = Array.from({ length: c }, () => Array(r).fill(0));
+                    for (let row = 0; row < r; row++) {
+                        for (let col = 0; col < c; col++) {
+                            rotated[col][r - 1 - row] = current[row][col];
+                        }
+                    }
+                    rotations.push(rotated);
+                    current = rotated;
+                }
+                return rotations;
+            }
+
+            rotateBlock(poolIndex) {
+                if (!this.isGameActive) return;
+                const block = this.pool[poolIndex];
+                if (!block) return;
+                
+                const shape = block.shape;
+                const rows = shape.length;
+                const cols = shape[0].length;
+                const rotatedShape = Array.from({ length: cols }, () => Array(rows).fill(0));
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        rotatedShape[c][rows - 1 - r] = shape[r][c];
+                    }
+                }
+                
+                block.shape = rotatedShape;
+                
+                // 播放音效
+                AudioEngine.playSelect();
+                
+                this.updateUI();
+                
+                // 旋轉後再次檢查是否真的 Game Over
+                if (this.isGameOver()) {
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.isGameActive = false;
+                    AudioEngine.playGameOver();
+                    this.showGameOver("NO_SPACE");
+                }
+            }
+
+            isGameOver() {
+                const activeBlocks = this.pool.filter(b => b !== null);
+                if (activeBlocks.length === 0) return false;
+
+                for (const block of activeBlocks) {
+                    const shapesToCheck = this.difficulty === 'easy' ? this.getRotations(block.shape) : [block.shape];
+                    for (const shape of shapesToCheck) {
+                        for (let r = 0; r < this.size; r++) {
+                            for (let c = 0; c < this.size; c++) {
+                                if (this.canPlace(shape, r, c)) {
+                                    return false; 
+                                }
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            updateUI() {
+                document.getElementById('score-text').innerText = this.score;
+                document.getElementById('best-score').innerText = this.highScore;
+
+                // 主棋盤繪製
+                const boardEl = document.getElementById('game-board');
+                boardEl.innerHTML = '';
+                boardEl.style.gridTemplateColumns = `repeat(${this.size}, minmax(0, 1fr))`;
+
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'rounded-[3px] md:rounded-[4px] aspect-square transition-colors duration-150 relative';
+                        cell.setAttribute('data-row', r);
+                        cell.setAttribute('data-col', c);
+                        
+                        const val = this.board[r][c];
+                        if (val === 0) {
+                            cell.className += ' bg-slate-900/85 border border-slate-800/40';
+                        } else {
+                            cell.style.backgroundColor = val;
+                            cell.className += ' shadow-[inset_0_1.5px_rgba(255,255,255,0.25)] shadow-md shadow-black/30';
+                        }
+                        boardEl.appendChild(cell);
+                    }
+                }
+
+                // 下方備選區
+                let activeCount = 0;
+                for (let i = 0; i < 3; i++) {
+                    const slot = document.getElementById(`pool-slot-${i}`);
+                    slot.innerHTML = '';
+                    slot.classList.remove('dragging-active');
+
+                    const block = this.pool[i];
+                    if (block) {
+                        activeCount++;
+                        const blockEl = document.createElement('div');
+                        blockEl.className = 'absolute cursor-grab block-preview-scale flex flex-col items-center justify-center p-1 select-none';
+                        blockEl.setAttribute('data-pool-index', i);
+                        
+                        if (this.selectedPoolIndex === i) {
+                            blockEl.className += ' ring-2 ring-cyan-400 rounded-xl bg-slate-800/60 shadow-lg';
+                        }
+
+                        const shape = block.shape;
+                        const blockGrid = document.createElement('div');
+                        blockGrid.className = 'grid gap-[2px]';
+                        blockGrid.style.gridTemplateColumns = `repeat(${shape[0].length}, minmax(0, 1fr))`;
+
+                        const cellSize = 'w-[18px] h-[18px] md:w-[22px] md:h-[22px]';
+
+                        for (let r = 0; r < shape.length; r++) {
+                            for (let c = 0; c < shape[r].length; c++) {
+                                const gridCell = document.createElement('div');
+                                if (shape[r][c] === 1) {
+                                    gridCell.className = `${cellSize} rounded-[2px] shadow-sm`;
+                                    gridCell.style.backgroundColor = block.color;
+                                } else {
+                                    gridCell.className = `${cellSize} opacity-0`;
+                                }
+                                blockGrid.appendChild(gridCell);
+                            }
+                        }
+
+                        blockEl.appendChild(blockGrid);
+                        slot.appendChild(blockEl);
+                        
+                        if (this.difficulty === 'easy') {
+                            const rotateBtn = document.createElement('button');
+                            rotateBtn.className = 'absolute top-1 right-1 z-35 w-6 h-6 rounded-full bg-slate-900/95 border border-slate-700/65 text-emerald-400 hover:text-white hover:bg-emerald-600 hover:border-emerald-400 flex items-center justify-center shadow-lg transition-all duration-200 active:scale-90 group';
+                            rotateBtn.innerHTML = '<i class="fa-solid fa-rotate text-[10px] group-hover:rotate-180 transition-transform duration-500"></i>';
+                            rotateBtn.title = '旋轉方塊';
+                            rotateBtn.addEventListener('pointerdown', (e) => {
+                                e.stopPropagation();
+                                this.rotateBlock(i);
+                            });
+                            slot.appendChild(rotateBtn);
+                        }
+                        
+                        this.setupDragEvents(blockEl, i);
+                    }
+                }
+
+                document.getElementById('blocks-count').innerText = `${activeCount} 剩餘`;
+            }
+
+            setupDragEvents(blockEl, poolIndex) {
+                blockEl.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    AudioEngine.playSelect();
+
+                    if (this.selectedPoolIndex === poolIndex) {
+                        this.selectedPoolIndex = null;
+                    } else {
+                        this.selectedPoolIndex = poolIndex;
+                    }
+                    this.updateUI();
+
+                    const state = this.dragState;
+                    state.isDragging = true;
+                    state.poolIndex = poolIndex;
+
+                    // 100% 防止移動過渡動畫造成的色塊殘留
+                    const boardEl = document.getElementById('game-board');
+                    boardEl.classList.add('no-transition');
+
+                    // 1:1 的投影尺寸計算
+                    const firstCell = document.querySelector('#game-board > div');
+                    const targetCellRect = firstCell.getBoundingClientRect();
+                    const targetCellW = targetCellRect.width;
+                    const targetCellH = targetCellRect.height;
+
+                    const block = this.pool[poolIndex];
+                    const proxy = document.getElementById('drag-proxy');
+                    proxy.innerHTML = '';
+                    proxy.classList.add('no-transition');
+                    
+                    const shape = block.shape;
+                    const blockGrid = document.createElement('div');
+                    blockGrid.className = 'grid gap-[3px] md:gap-[4px]'; 
+                    blockGrid.style.gridTemplateColumns = `repeat(${shape[0].length}, minmax(0, 1fr))`;
+
+                    for (let r = 0; r < shape.length; r++) {
+                        for (let c = 0; c < shape[r].length; c++) {
+                            const gridCell = document.createElement('div');
+                            gridCell.style.width = `${targetCellW}px`;
+                            gridCell.style.height = `${targetCellH}px`;
+                            if (shape[r][c] === 1) {
+                                gridCell.className = 'rounded-[3px] md:rounded-[4px] shadow-md';
+                                gridCell.style.backgroundColor = block.color;
+                            } else {
+                                gridCell.className = 'opacity-0';
+                            }
+                            blockGrid.appendChild(gridCell);
+                        }
+                    }
+                    proxy.appendChild(blockGrid);
+
+                    // 防手指遮擋偏移
+                    const isTouch = e.pointerType === 'touch';
+                    const verticalOffset = isTouch ? (targetCellH * shape.length) / 2 + 65 : (targetCellH * shape.length) / 2;
+
+                    state.offsetX = (targetCellW * shape[0].length) / 2;
+                    state.offsetY = verticalOffset;
+
+                    proxy.style.opacity = '1';
+                    
+                    const curX = e.clientX - state.offsetX;
+                    const curY = e.clientY - state.offsetY;
+                    proxy.style.left = `${curX}px`;
+                    proxy.style.top = `${curY}px`;
+
+                    const slot = document.getElementById(`pool-slot-${poolIndex}`);
+                    slot.classList.add('dragging-active');
+
+                    const handleGlobalMove = (moveEvent) => {
+                        if (!state.isDragging) return;
+                        
+                        const targetX = moveEvent.clientX - state.offsetX;
+                        const targetY = moveEvent.clientY - state.offsetY;
+                        
+                        proxy.style.left = `${targetX}px`;
+                        proxy.style.top = `${targetY}px`;
+
+                        this.previewPlacement(targetX, targetY);
+                    };
+
+                    const handleGlobalUp = (upEvent) => {
+                        if (!state.isDragging) return;
+                        state.isDragging = false;
+
+                        proxy.style.opacity = '0';
+                        proxy.innerHTML = '';
+                        proxy.classList.remove('no-transition');
+
+                        slot.classList.remove('dragging-active');
+
+                        const targetX = upEvent.clientX - state.offsetX;
+                        const targetY = upEvent.clientY - state.offsetY;
+                        
+                        this.resolveDrop(state.poolIndex, targetX, targetY);
+                        this.clearPreviews();
+
+                        // 重新啟用過渡
+                        boardEl.classList.remove('no-transition');
+
+                        document.removeEventListener('pointermove', handleGlobalMove);
+                        document.removeEventListener('pointerup', handleGlobalUp);
+                    };
+
+                    document.addEventListener('pointermove', handleGlobalMove);
+                    document.addEventListener('pointerup', handleGlobalUp);
+
+                    e.stopPropagation();
+                });
+            }
+
+            getGridIntersection(clientX, clientY) {
+                const boardEl = document.getElementById('game-board');
+                const boardRect = boardEl.getBoundingClientRect();
+
+                if (clientX < boardRect.left - 40 || clientX > boardRect.right + 40 ||
+                    clientY < boardRect.top - 40 || clientY > boardRect.bottom + 40) {
+                    return null;
+                }
+
+                const cellW = boardRect.width / this.size;
+                const cellH = boardRect.height / this.size;
+
+                const relativeX = clientX - boardRect.left;
+                const relativeY = clientY - boardRect.top;
+
+                const col = Math.round(relativeX / cellW);
+                const row = Math.round(relativeY / cellH);
+
+                return { row, col };
+            }
+
+            // 乾淨且 100% 準確地清除殘影
+            clearPreviews() {
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                        if (cell) {
+                            cell.classList.remove('preview-valid', 'preview-invalid');
+                            cell.style.boxShadow = '';
+                            
+                            // 若此格在棋盤上仍為空地，務必還原至原先的空樣式
+                            if (this.board[r][c] === 0) {
+                                cell.style.backgroundColor = '';
+                                cell.style.opacity = '';
+                            }
+                        }
+                    }
+                }
+            }
+
+            previewPlacement(clientX, clientY) {
+                this.clearPreviews();
+                
+                const pos = this.getGridIntersection(clientX, clientY);
+                if (!pos) return;
+
+                const block = this.pool[this.dragState.poolIndex];
+                if (!block) return;
+
+                const isValid = this.canPlace(block.shape, pos.row, pos.col);
+                const shape = block.shape;
+
+                for (let r = 0; r < shape.length; r++) {
+                    for (let c = 0; c < shape[r].length; c++) {
+                        if (shape[r][c] === 1) {
+                            const tRow = pos.row + r;
+                            const tCol = pos.col + c;
+
+                            // 確保在棋盤邊界內
+                            if (tRow < 0 || tRow >= this.size || tCol < 0 || tCol >= this.size) {
+                                continue;
+                            }
+
+                            const targetCell = document.querySelector(`[data-row="${tRow}"][data-col="${tCol}"]`);
+                            if (targetCell) {
+                                // 只有當棋盤格原本為空地 (0) 時，才改變顏色或外觀進行預覽，已放方塊的格子保留原樣
+                                if (this.board[tRow][tCol] === 0) {
+                                    if (isValid) {
+                                        targetCell.style.boxShadow = `inset 0 0 10px ${block.color}`;
+                                        targetCell.classList.add('preview-valid');
+                                        targetCell.style.backgroundColor = block.color;
+                                        targetCell.style.opacity = '0.55';
+                                    } else {
+                                        targetCell.classList.add('preview-invalid');
+                                        targetCell.style.backgroundColor = 'rgba(239, 68, 68, 0.4)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            resolveDrop(poolIndex, clientX, clientY) {
+                const pos = this.getGridIntersection(clientX, clientY);
+                if (pos) {
+                    const placed = this.placeBlock(poolIndex, pos.row, pos.col);
+                    if (!placed) {
+                        this.updateUI();
+                    }
+                } else {
+                    this.updateUI();
+                }
+            }
+
+            spawnFloatingScore(scoreValue, customX = null, customY = null, isPlacement = false) {
+                const container = document.getElementById('board-container');
+                if (!container) return;
+
+                const scoreFloat = document.createElement('div');
+                if (isPlacement) {
+                    // 放置方塊的分數：稍微小一些，使用優雅的青藍-靛藍漸層與輕亮光暈，非常動感
+                    scoreFloat.className = 'floating-score bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent text-sm font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]';
+                } else {
+                    // 消除得分：大型黃金/橘色漸層
+                    scoreFloat.className = 'floating-score text-gradient bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-200 text-2xl font-extrabold drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]';
+                }
+                scoreFloat.innerText = `+${scoreValue}`;
+                
+                if (customX !== null && customY !== null) {
+                    scoreFloat.style.left = `${customX}px`;
+                    scoreFloat.style.top = `${customY}px`;
+                } else {
+                    scoreFloat.style.left = '50%';
+                    scoreFloat.style.top = '40%';
+                }
+                scoreFloat.style.transform = 'translate(-50%, -50%)';
+
+                container.appendChild(scoreFloat);
+
+                setTimeout(() => {
+                    scoreFloat.remove();
+                }, isPlacement ? 850 : 1150);
+            }
+
+            triggerComboAlert(lines, earnedScore) {
+                const alertEl = document.getElementById('combo-alert');
+                const textEl = document.getElementById('combo-text');
+                
+                textEl.innerText = `COMBO 連消 ${lines} 行 ＋${earnedScore}分`;
+                alertEl.style.transform = 'scale(1.15)';
+                
+                setTimeout(() => {
+                    alertEl.style.transform = 'scale(0)';
+                }, 1400);
+            }
+
+            async getLeaderboard(size, mode = 'infinite') {
+                const queryMode = mode === 'timed' ? 'timed' : 'infinite';
+                if (window.location.protocol === 'file:') {
+                    const storageKey = queryMode === 'infinite' ? `block_puzzle_leaderboard_${size}` : `block_puzzle_leaderboard_${size}_timed`;
+                    return JSON.parse(localStorage.getItem(storageKey) || '[]');
+                }
+                try {
+                    const response = await fetch(`/api/leaderboard?size=${size}&mode=${queryMode}`);
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                } catch (e) {
+                    console.warn("無法取得雲端排行榜，改用本機儲存體:", e);
+                }
+                const storageKey = queryMode === 'infinite' ? `block_puzzle_leaderboard_${size}` : `block_puzzle_leaderboard_${size}_timed`;
+                return JSON.parse(localStorage.getItem(storageKey) || '[]');
+            }
+
+            async saveLeaderboard(size, name, score, mode = 'infinite') {
+                const queryMode = mode === 'timed' ? 'timed' : 'infinite';
+                if (window.location.protocol !== 'file:') {
+                    try {
+                        const response = await fetch('/api/leaderboard', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ size, name, score, mode: queryMode })
+                        });
+                        if (response.ok) {
+                            return await response.json();
+                        }
+                    } catch (e) {
+                        console.warn("無法上傳成績至雲端排行榜，改用本機儲存體:", e);
+                    }
+                }
+                
+                const storageKey = queryMode === 'infinite' ? `block_puzzle_leaderboard_${size}` : `block_puzzle_leaderboard_${size}_timed`;
+                const list = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                list.push({
+                    name: name || "無名大師",
+                    score: score,
+                    date: new Date().toLocaleDateString()
+                });
+                
+                list.sort((a, b) => b.score - a.score);
+                const updatedList = list.slice(0, 10);
+                localStorage.setItem(storageKey, JSON.stringify(updatedList));
+                return updatedList;
+            }
+
+            async checkIfTopTen(score) {
+                const list = await this.getLeaderboard(this.size, this.gameMode);
+                if (list.length < 10) return true;
+                return score > list[list.length - 1].score;
+            }
+
+            async showGameOver(reason = "NO_SPACE") {
+                this.isGameActive = false;
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                }
+
+                const modal = document.getElementById('game-over-modal');
+                const titleEl = document.getElementById('game-over-title');
+                const descEl = document.getElementById('game-over-desc');
+                const iconEl = document.getElementById('game-over-icon');
+
+                // 動態調整 GameOver 原因的標題與圖示
+                if (reason === "TIME_UP") {
+                    if (titleEl) titleEl.innerText = "時間到！挑戰結束";
+                    if (descEl) descEl.innerText = "5 分鐘極速挑戰時間已耗盡，表現亮眼！";
+                    if (iconEl) iconEl.className = "fa-solid fa-hourglass-end text-rose-500 animate-pulse";
+                } else {
+                    if (titleEl) titleEl.innerText = "沒有可放置的空間了！";
+                    if (descEl) descEl.innerText = "棋盤上已無空間可以容納任何備選方塊！";
+                    if (iconEl) iconEl.className = "fa-solid fa-skull-crossbones animate-wiggle";
+                }
+
+                document.getElementById('final-score').innerText = this.score;
+                document.getElementById('modal-best').innerText = this.highScore;
+                
+                // 檢查是否達排行榜資格
+                let isTop = false;
+                try {
+                    if (this.score > 0) {
+                        isTop = await this.checkIfTopTen(this.score);
+                    }
+                } catch (e) {
+                    console.warn("Failed to check top ten leaderboard:", e);
+                }
+
+                const highscoreSec = document.getElementById('new-highscore-section');
+                if (isTop) {
+                    highscoreSec.classList.remove('hidden');
+                    document.getElementById('player-name-input').value = '';
+                } else {
+                    highscoreSec.classList.add('hidden');
+                }
+
+                modal.classList.remove('pointer-events-none', 'opacity-0');
+                modal.firstElementChild.style.transform = 'scale(1)';
+            }
+
+            hideGameOver() {
+                const modal = document.getElementById('game-over-modal');
+                modal.classList.add('pointer-events-none', 'opacity-0');
+                modal.firstElementChild.style.transform = 'scale(0.95)';
+            }
+        }
+
+        // 載入遊戲執行
+        document.addEventListener('DOMContentLoaded', () => {
+            const game = new BlockPuzzle();
+            
+            // 初始化難度按鈕外觀
+            const initDiffButtons = () => {
+                const diffButtons = document.querySelectorAll('.diff-btn');
+                diffButtons.forEach(btn => {
+                    const btnDiff = btn.getAttribute('data-diff');
+                    const dot = btn.querySelector('span');
+                    
+                    if (btnDiff === game.difficulty) {
+                        let colorDot = "bg-indigo-400";
+                        if (btnDiff === 'easy') {
+                            colorDot = "bg-emerald-500";
+                            btn.className = "diff-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-emerald-600 shadow-md shadow-emerald-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                        } else if (btnDiff === 'classic') {
+                            colorDot = "bg-indigo-400";
+                            btn.className = "diff-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-indigo-600 shadow-md shadow-indigo-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                        } else if (btnDiff === 'hard') {
+                            colorDot = "bg-rose-500";
+                            btn.className = "diff-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-rose-600 shadow-md shadow-rose-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                        }
+                        if (dot) dot.className = `w-1 h-1 rounded-full ${colorDot} animate-pulse`;
+                    } else {
+                        btn.className = "diff-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1";
+                        let colorDot = "bg-indigo-400";
+                        if (btnDiff === 'easy') colorDot = "bg-emerald-500";
+                        else if (btnDiff === 'classic') colorDot = "bg-indigo-400";
+                        else if (btnDiff === 'hard') colorDot = "bg-rose-500";
+                        if (dot) dot.className = `w-1 h-1 rounded-full ${colorDot}`;
+                    }
+                });
+            };
+            initDiffButtons();
+
+            game.init(9); 
+
+            // 一次性觸發以解鎖行動裝置的音效 (Mobile Audio Unlocker)
+            // 使用「事件捕獲」(Capturing) 確保在區塊事件調用 e.preventDefault() 之前執行解鎖
+            const unlockAudio = () => {
+                AudioEngine.init();
+                const events = ['click', 'touchstart', 'touchend', 'pointerdown', 'mousedown', 'mouseup'];
+                events.forEach(evt => document.removeEventListener(evt, unlockAudio, true));
+            };
+            const events = ['click', 'touchstart', 'touchend', 'pointerdown', 'mousedown', 'mouseup'];
+            events.forEach(evt => document.addEventListener(evt, unlockAudio, true));
+
+            // 輔助點擊放置
+            document.getElementById('game-board').addEventListener('click', (e) => {
+                const cell = e.target.closest('[data-row]');
+                if (!cell || game.selectedPoolIndex === null) return;
+
+                const r = parseInt(cell.getAttribute('data-row'), 10);
+                const c = parseInt(cell.getAttribute('data-col'), 10);
+                
+                const success = game.placeBlock(game.selectedPoolIndex, r, c);
+                if (!success) {
+                    cell.classList.add('preview-invalid');
+                    setTimeout(() => cell.classList.remove('preview-invalid'), 180);
+                }
+            });
+
+            // 點擊外面取消選取
+            document.addEventListener('pointerdown', (e) => {
+                if (!e.target.closest('#game-board') && !e.target.closest('.pool-slot')) {
+                    if (game.selectedPoolIndex !== null) {
+                        game.selectedPoolIndex = null;
+                        game.updateUI();
+                    }
+                }
+            });
+
+            // 音效開關
+            document.getElementById('btn-sound').addEventListener('click', () => {
+                AudioEngine.toggle();
+            });
+
+            // 玩法規則對話框
+            const rules = document.getElementById('rules-modal');
+            document.getElementById('btn-rules').addEventListener('click', () => {
+                // 如果遊戲進行中，先暫停計時器
+                if (game.isGameActive) {
+                    game.isPausedByModal = true;
+                    game.isGameActive = false;
+                }
+                rules.classList.remove('pointer-events-none', 'opacity-0');
+                rules.firstElementChild.style.transform = 'scale(1)';
+            });
+            const closeRulesModal = () => {
+                rules.classList.add('pointer-events-none', 'opacity-0');
+                rules.firstElementChild.style.transform = 'scale(0.95)';
+                // 如果先前因為開啟規則而暫停，則恢復計時
+                if (game.isPausedByModal) {
+                    game.isGameActive = true;
+                    game.isPausedByModal = false;
+                }
+            };
+            document.getElementById('btn-close-rules').addEventListener('click', closeRulesModal);
+            document.getElementById('btn-rules-ok').addEventListener('click', closeRulesModal);
+
+            // 排行榜對話框
+            const leaderboardModal = document.getElementById('leaderboard-modal');
+            const showLeaderboard = async (size) => {
+                // 更新分頁按鈕外觀
+                document.querySelectorAll('.leaderboard-tab-btn').forEach(btn => {
+                    const btnSize = parseInt(btn.getAttribute('data-filter'), 10);
+                    if (btnSize === size) {
+                        btn.className = "leaderboard-tab-btn flex-1 py-1 rounded bg-indigo-600 text-white shadow font-extrabold";
+                    } else {
+                        btn.className = "leaderboard-tab-btn flex-1 py-1 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition";
+                    }
+                });
+
+                const subtitleEl = document.getElementById('leaderboard-subtitle');
+                if (subtitleEl) {
+                    subtitleEl.innerText = game.gameMode === 'infinite' ? '無限時間模式' : '5 分鐘挑戰模式';
+                }
+
+                const listContainer = document.getElementById('leaderboard-list');
+                listContainer.innerHTML = '<div class="text-center py-6 text-xs text-indigo-400 animate-pulse"><i class="fa-solid fa-spinner animate-spin mr-1"></i> 排行榜載入中...</div>';
+                
+                try {
+                    const scores = await game.getLeaderboard(size, game.gameMode);
+                    listContainer.innerHTML = '';
+
+                    if (scores.length === 0) {
+                        listContainer.innerHTML = '<div class="text-center py-6 text-xs text-slate-500">尚無冒險者登陸榜單</div>';
+                        return;
+                    }
+
+                    scores.forEach((item, index) => {
+                        const row = document.createElement('div');
+                        row.className = `flex justify-between items-center p-2 rounded-xl text-xs ${index === 0 ? 'bg-amber-500/10 border border-amber-500/25' : 'bg-slate-900/60 border border-slate-800/30'}`;
+                        
+                        // 勳章樣式
+                        let medal = `<span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center font-bold text-[10px] text-slate-400">${index + 1}</span>`;
+                        if (index === 0) medal = `<span class="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-extrabold text-[10px] shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crown text-[8px]"></i></span>`;
+                        if (index === 1) medal = `<span class="w-5 h-5 rounded-full bg-slate-300 text-slate-950 flex items-center justify-center font-extrabold text-[10px] shadow-lg shadow-slate-300/20">2</span>`;
+                        if (index === 2) medal = `<span class="w-5 h-5 rounded-full bg-orange-400 text-slate-950 flex items-center justify-center font-extrabold text-[10px] shadow-lg shadow-orange-500/20">3</span>`;
+
+                        row.innerHTML = `
+                            <div class="flex items-center gap-2">
+                                ${medal}
+                                <span class="font-extrabold text-slate-200">${item.name}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-black text-amber-300 block">${item.score}</span>
+                                <span class="text-[8px] text-slate-500 block">${item.date || ""}</span>
+                            </div>
+                        `;
+                        listContainer.appendChild(row);
+                    });
+                } catch (err) {
+                    console.error("載入排行榜失敗", err);
+                    listContainer.innerHTML = '<div class="text-center py-6 text-xs text-rose-400">載入排行榜失敗</div>';
+                }
+            };
+
+            // 名人堂 (排行榜) 對話框
+            document.getElementById('btn-leaderboard').addEventListener('click', () => {
+                // 如果遊戲進行中，先暫停計時器
+                if (game.isGameActive) {
+                    game.isPausedByModal = true;
+                    game.isGameActive = false;
+                }
+                leaderboardModal.classList.remove('pointer-events-none', 'opacity-0');
+                leaderboardModal.firstElementChild.style.transform = 'scale(1)';
+                showLeaderboard(game.size);
+            });
+            const closeLeaderboardModal = () => {
+                leaderboardModal.classList.add('pointer-events-none', 'opacity-0');
+                leaderboardModal.firstElementChild.style.transform = 'scale(0.95)';
+                // 如果先前因為開啟排行榜而暫停，則恢復計時
+                if (game.isPausedByModal) {
+                    game.isGameActive = true;
+                    game.isPausedByModal = false;
+                }
+            };
+            document.getElementById('btn-close-leaderboard').addEventListener('click', closeLeaderboardModal);
+            document.getElementById('btn-leaderboard-ok').addEventListener('click', closeLeaderboardModal);
+
+            // 名人堂過濾分頁
+            document.querySelectorAll('.leaderboard-tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const size = parseInt(btn.getAttribute('data-filter'), 10);
+                    showLeaderboard(size);
+                });
+            });
+
+            // 姓名輸入框支援按下 Enter 鍵自動送出
+            document.getElementById('player-name-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('btn-submit-score').click();
+                }
+            });
+
+            // 提交新記錄
+            document.getElementById('btn-submit-score').addEventListener('click', async () => {
+                const nameInput = document.getElementById('player-name-input');
+                let name = nameInput.value.trim() || "匿名大師";
+                if (game.difficulty === 'easy') {
+                    name += ' (簡單)';
+                } else if (game.difficulty === 'hard') {
+                    name += ' (困難)';
+                }
+                
+                const btnSubmit = document.getElementById('btn-submit-score');
+                const originalText = btnSubmit.innerText;
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i>';
+                
+                try {
+                    await game.saveLeaderboard(game.size, name, game.score, game.gameMode);
+                } catch (e) {
+                    console.error("提交紀錄失敗", e);
+                } finally {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerText = originalText;
+                }
+                
+                // 隱藏輸入框，並轉跳到排行榜檢視
+                document.getElementById('new-highscore-section').classList.add('hidden');
+                game.hideGameOver();
+                
+                // 自動重啟遊戲，確保關閉排行榜時有全新乾淨的棋盤可玩
+                game.init(game.size);
+                
+                // 由於排行榜彈窗開啟，先將新遊戲暫停計時，等關閉排行榜後再開始
+                game.isPausedByModal = true;
+                game.isGameActive = false;
+                
+                leaderboardModal.classList.remove('pointer-events-none', 'opacity-0');
+                leaderboardModal.firstElementChild.style.transform = 'scale(1)';
+                showLeaderboard(game.size);
+            });
+
+            // 重玩與重開
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                game.init(game.size);
+            });
+            document.getElementById('modal-restart').addEventListener('click', () => {
+                game.hideGameOver();
+                game.init(game.size);
+            });
+
+            // 切換尺寸
+            const sizeButtons = document.querySelectorAll('.size-btn');
+            sizeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const nextSize = parseInt(btn.getAttribute('data-size'), 10);
+                    if (nextSize === game.size) return;
+
+                    sizeButtons.forEach(b => {
+                        b.className = "size-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1";
+                        const activePulse = b.querySelector('.animate-pulse');
+                        if (activePulse) activePulse.classList.remove('animate-pulse');
+                    });
+
+                    let colorDot = "bg-indigo-400";
+                    if (nextSize === 5) {
+                        colorDot = "bg-emerald-500";
+                        btn.className = "size-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-emerald-600 shadow-md shadow-emerald-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    } else if (nextSize === 9) {
+                        colorDot = "bg-indigo-400";
+                        btn.className = "size-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-indigo-600 shadow-md shadow-indigo-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    } else if (nextSize === 12) {
+                        colorDot = "bg-cyan-400";
+                        btn.className = "size-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-cyan-600 shadow-md shadow-cyan-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    }
+                    
+                    const dot = btn.querySelector('span');
+                    if (dot) dot.className = `w-1 h-1 rounded-full ${colorDot} animate-pulse`;
+
+                    game.init(nextSize);
+                });
+            });
+
+            // 切換時間模式
+            const modeButtons = document.querySelectorAll('.time-mode-btn');
+            modeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const nextMode = btn.getAttribute('data-mode');
+                    if (nextMode === game.gameMode) return;
+
+                    game.gameMode = nextMode;
+
+                    modeButtons.forEach(b => {
+                        b.className = "time-mode-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1";
+                        const activePulse = b.querySelector('.animate-pulse');
+                        if (activePulse) activePulse.classList.remove('animate-pulse');
+                    });
+
+                    let colorDot = "bg-indigo-400";
+                    if (nextMode === 'infinite') {
+                        colorDot = "bg-indigo-400";
+                        btn.className = "time-mode-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-indigo-600 shadow-md shadow-indigo-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    } else if (nextMode === 'timed') {
+                        colorDot = "bg-cyan-400";
+                        btn.className = "time-mode-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-cyan-600 shadow-md shadow-cyan-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    }
+
+                    const dot = btn.querySelector('span');
+                    if (dot) dot.className = `w-1 h-1 rounded-full ${colorDot} animate-pulse`;
+
+                    game.init(game.size);
+                });
+            });
+
+            // 切換難度模式
+            const diffButtons = document.querySelectorAll('.diff-btn');
+            diffButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const nextDiff = btn.getAttribute('data-diff');
+                    if (nextDiff === game.difficulty) return;
+
+                    game.difficulty = nextDiff;
+                    localStorage.setItem('block_puzzle_difficulty', nextDiff);
+
+                    diffButtons.forEach(b => {
+                        b.className = "diff-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1";
+                        const activePulse = b.querySelector('.animate-pulse');
+                        if (activePulse) activePulse.classList.remove('animate-pulse');
+                    });
+
+                    let colorDot = "bg-indigo-400";
+                    if (nextDiff === 'easy') {
+                        colorDot = "bg-emerald-500";
+                        btn.className = "diff-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-emerald-600 shadow-md shadow-emerald-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    } else if (nextDiff === 'classic') {
+                        colorDot = "bg-indigo-400";
+                        btn.className = "diff-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-indigo-600 shadow-md shadow-indigo-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    } else if (nextDiff === 'hard') {
+                        colorDot = "bg-rose-500";
+                        btn.className = "diff-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-rose-600 shadow-md shadow-rose-500/10 transition-all duration-300 flex items-center justify-center gap-1";
+                    }
+
+                    const dot = btn.querySelector('span');
+                    if (dot) dot.className = `w-1 h-1 rounded-full ${colorDot} animate-pulse`;
+
+                    game.init(game.size);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
