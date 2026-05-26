@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
+        :root {
+            --non-board-height: 440px;
+        }
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: #0b0f19;
@@ -162,6 +165,9 @@
 
         /* 針對短螢幕高度的響應式優化，防止 footer 遮擋或超出螢幕 */
         @media (max-height: 720px) {
+            :root {
+                --non-board-height: 385px;
+            }
             body {
                 padding: 0.5rem !important; /* 減少 body 內邊距 */
             }
@@ -185,14 +191,17 @@
         }
         
         @media (max-height: 645px) {
+            :root {
+                --non-board-height: 360px;
+            }
             body {
                 padding: 0.375rem !important;
             }
             main {
                 gap: 0.375rem !important;
             }
-            .size-selector-panel, .time-selector-panel {
-                font-size: 10px !important;
+            .size-selector-panel, .time-selector-panel, .difficulty-selector-panel {
+                font-size: 12px !important;
                 padding: 0.125rem !important;
             }
         }
@@ -236,7 +245,7 @@
                 <h1 class="text-md font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-white to-orange-400">
                     SEANLAB<span class="text-xs text-orange-400 font-bold">.net</span>
                 </h1>
-                <p class="text-[7px] text-slate-400/90 font-bold tracking-widest uppercase">Block Puzzle Journey</p>
+                <p class="text-[10px] text-slate-400/90 font-bold tracking-widest uppercase">Block Puzzle Journey</p>
             </div>
         </div>
         <div class="flex items-center gap-2 md:gap-2.5">
@@ -265,8 +274,8 @@
                     <i class="fa-solid fa-star"></i>
                 </div>
                 <div>
-                    <span class="text-[7px] uppercase tracking-wider text-slate-400 font-semibold block">SCORE</span>
-                    <span id="score-text" class="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">0</span>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">SCORE</span>
+                    <span id="score-text" class="text-sm md:text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200">0</span>
                 </div>
             </div>
             <!-- 倒數計時 (5分鐘) -->
@@ -275,8 +284,8 @@
                     <i class="fa-solid fa-clock"></i>
                 </div>
                 <div>
-                    <span class="text-[7px] uppercase tracking-wider text-slate-400 font-semibold block">TIME</span>
-                    <span id="timer-text" class="text-xs font-black text-cyan-300">05:00</span>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">TIME</span>
+                    <span id="timer-text" class="text-sm md:text-base font-black text-cyan-300">05:00</span>
                 </div>
             </div>
             <!-- 最高紀錄 -->
@@ -285,14 +294,14 @@
                     <i class="fa-solid fa-medal"></i>
                 </div>
                 <div>
-                    <span class="text-[7px] uppercase tracking-wider text-slate-400 font-semibold block">BEST</span>
-                    <span id="best-score" class="text-xs font-black text-amber-300">0</span>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">BEST</span>
+                    <span id="best-score" class="text-sm md:text-base font-black text-amber-300">0</span>
                 </div>
             </div>
         </div>
 
         <!-- 空間模式選擇器 (5x5, 9x9, 12x12) -->
-        <div class="size-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[11px] font-bold shadow-inner border-slate-800 flex-shrink-0">
+        <div class="size-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[13px] font-bold shadow-inner border-slate-800 flex-shrink-0">
             <button data-size="5" class="size-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
                 <span class="w-1 h-1 rounded-full bg-emerald-500"></span> 5 × 5 快速
             </button>
@@ -305,17 +314,17 @@
         </div>
 
         <!-- 時間模式選擇器 (無限時間, 5分鐘挑戰) -->
-        <div class="time-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[11px] font-bold shadow-inner border-slate-800 flex-shrink-0">
+        <div class="time-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[13px] font-bold shadow-inner border-slate-800 flex-shrink-0">
             <button data-mode="infinite" class="time-mode-btn flex-1 py-1 rounded-lg text-white font-extrabold bg-indigo-600 shadow-md shadow-indigo-500/10 transition-all duration-300 flex items-center justify-center gap-1">
-                <span class="w-1 h-1 rounded-full bg-indigo-400 animate-pulse"></span> <i class="fa-solid fa-infinity text-[10px]"></i> 無限時間
+                <span class="w-1 h-1 rounded-full bg-indigo-400 animate-pulse"></span> <i class="fa-solid fa-infinity text-xs"></i> 無限時間
             </button>
             <button data-mode="timed" class="time-mode-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
-                <span class="w-1 h-1 rounded-full bg-cyan-400"></span> <i class="fa-solid fa-clock text-[10px]"></i> 5分鐘挑戰
+                <span class="w-1 h-1 rounded-full bg-cyan-400"></span> <i class="fa-solid fa-clock text-xs"></i> 5分鐘挑戰
             </button>
         </div>
 
         <!-- 難度選擇器 (簡單, 經典, 困難) -->
-        <div class="difficulty-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[11px] font-bold shadow-inner border-slate-800 flex-shrink-0">
+        <div class="difficulty-selector-panel glass-panel p-0.5 rounded-xl flex justify-between gap-1 text-[13px] font-bold shadow-inner border-slate-800 flex-shrink-0">
             <button data-diff="easy" class="diff-btn flex-1 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition-all duration-300 flex items-center justify-center gap-1">
                 <span class="w-1 h-1 rounded-full bg-emerald-500"></span> 簡單模式
             </button>
@@ -328,7 +337,7 @@
         </div>
 
         <!-- 遊戲主畫布與容器 -->
-        <div id="board-container" class="relative w-full aspect-square glass-panel p-2 rounded-2xl shadow-2xl border-slate-700/60 neon-glow-cyan flex items-center justify-center mx-auto" style="max-height: calc(100dvh - 395px); max-width: calc(100dvh - 395px);">
+        <div id="board-container" class="relative w-full aspect-square glass-panel p-2 rounded-2xl shadow-2xl border-slate-700/60 neon-glow-cyan flex items-center justify-center mx-auto" style="max-height: calc(100dvh - var(--non-board-height)); max-width: calc(100dvh - var(--non-board-height));">
             <!-- 遊戲格子盤面 -->
             <div id="game-board" class="grid w-full h-full gap-[3px] md:gap-[4px] relative select-none">
                 <!-- 由 JavaScript 動態生成格數 -->
@@ -347,10 +356,10 @@
         <!-- 底部備選方塊等待區 -->
         <div class="pool-container-panel glass-panel p-2 rounded-2xl shadow-lg border-slate-700/50 flex flex-col gap-1 flex-shrink-0">
             <div class="flex justify-between items-center px-1">
-                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                     <i class="fa-solid fa-lightbulb text-amber-400 animate-pulse"></i> 備選方塊
                 </span>
-                <span id="blocks-count" class="text-[8px] bg-slate-800 px-1.5 py-0.5 rounded-full font-bold text-slate-300">3 剩餘</span>
+                <span id="blocks-count" class="text-xs bg-slate-800 px-2 py-0.5 rounded-full font-bold text-slate-300">3 剩餘</span>
             </div>
             
             <!-- 放置方塊的卡槽 -->
@@ -362,61 +371,58 @@
         </div>
     </main>
 
-    <footer class="w-full max-w-md mx-auto flex justify-between items-center px-2 py-1.5 text-[9px] text-slate-500 font-semibold tracking-wider flex-shrink-0 border-t border-slate-800/40 mt-1">
+    <footer class="w-full max-w-md mx-auto flex justify-between items-center px-2 py-1.5 text-[10px] text-slate-500 font-semibold tracking-wider flex-shrink-0 border-t border-slate-800/40 mt-1">
         <div class="flex items-center gap-1.5">
             <span>&copy; 2026</span>
             <span class="text-slate-850">|</span>
             <a href="https://seanlab.net" target="_blank" class="bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent hover:brightness-125 transition-all duration-300 flex items-center gap-0.5 font-bold group">
                 SEANLAB.NET
-                <i class="fa-solid fa-arrow-up-right-from-square text-[7px] text-cyan-400/85 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200"></i>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-cyan-400/85 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200"></i>
+            </a>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-cyan-400/85 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200"></i>
             </a>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-4">
             <a href="https://seanlab.net" target="_blank" class="group transition-all duration-300 flex items-center gap-1" title="探索實驗室">
-                <i class="fa-solid fa-flask text-[10px] text-slate-500 group-hover:text-cyan-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
+                <i class="fa-solid fa-flask text-[12px] text-slate-500 group-hover:text-cyan-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
             </a>
             <a href="https://seanlab.net/games" target="_blank" class="group transition-all duration-300 flex items-center gap-1" title="更多遊戲">
-                <i class="fa-solid fa-gamepad text-[10px] text-slate-500 group-hover:text-emerald-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
+                <i class="fa-solid fa-gamepad text-[12px] text-slate-500 group-hover:text-emerald-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
             </a>
             <a href="mailto:contact@seanlab.net" class="group transition-all duration-300 flex items-center gap-1" title="與我們聯絡">
-                <i class="fa-regular fa-envelope text-[10px] text-slate-500 group-hover:text-purple-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
+                <i class="fa-regular fa-envelope text-[12px] text-slate-500 group-hover:text-purple-400 group-hover:scale-110 active:scale-95 transition-all duration-200"></i>
             </a>
         </div>
     </footer>
 
     <!-- 遊戲結束對話框 -->
     <div id="game-over-modal" class="fixed inset-0 bg-slate-950/90 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-all duration-300">
-        <div class="glass-panel p-5 rounded-2xl max-w-xs w-full text-center border-indigo-500/30 shadow-2xl transform scale-95 transition-all duration-300">
-            <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-2 border border-rose-500/20 text-xl">
+        <div class="glass-panel p-5 rounded-2xl max-w-xs w-full text-center border-slate-700/60 shadow-2xl transform scale-95 transition-all duration-300">
+            <div class="text-indigo-400 text-3xl mb-1.5">
                 <i id="game-over-icon" class="fa-solid fa-skull-crossbones animate-wiggle"></i>
             </div>
-            <h2 id="game-over-title" class="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200 mb-1">
+            <h2 id="game-over-title" class="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200 mb-1">
                 沒有可放置的空間了！
             </h2>
-            <p id="game-over-desc" class="text-[10px] text-slate-400 mb-3 font-medium">本次挑戰圓滿結束，表現精彩！</p>
+            <p id="game-over-desc" class="text-xs text-slate-400 mb-3 font-medium">本次挑戰圓滿結束，表現精彩！</p>
             
-            <!-- 分數統計 -->
-            <div class="bg-slate-850/50 rounded-xl p-2.5 border border-slate-750 mb-3 flex flex-col gap-1 text-xs">
-                <div class="flex justify-between items-center">
-                    <span class="text-slate-400 font-bold">最終得分</span>
-                    <span id="final-score" class="text-lg font-black text-white">0</span>
+            <!-- 分數摘要 -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="bg-slate-900/60 border border-slate-800 p-2.5 rounded-xl shadow-inner">
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block mb-0.5">SCORE</span>
+                    <span id="final-score" class="text-2xl font-black text-white">0</span>
                 </div>
-                <div class="flex justify-between items-center border-t border-slate-700/50 pt-1">
-                    <span class="text-slate-400 font-bold">歷史最高紀錄</span>
-                    <span id="modal-best" class="text-xs font-black text-amber-300">0</span>
+                <div class="bg-slate-900/60 border border-slate-800 p-2.5 rounded-xl shadow-inner">
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block mb-0.5">BEST</span>
+                    <span id="modal-best" class="text-base font-black text-amber-300">0</span>
                 </div>
             </div>
 
-            <!-- 榮登前十名姓名輸入框 -->
+            <!-- 新紀錄輸入 (若符合會顯示) -->
             <div id="new-highscore-section" class="hidden bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3 mb-3 text-left">
-                <span class="text-[9px] text-indigo-400 font-bold uppercase tracking-wider block mb-1">🔥 恭喜榮登前 10 名排行榜！</span>
-                <p class="text-[10px] text-slate-300 mb-2">請輸入您的姓名以載入名人堂：</p>
+                <span class="text-[11px] text-indigo-400 font-bold uppercase tracking-wider block mb-1">🔥 恭喜榮登前 10 名排行榜！</span>
+                <p class="text-xs text-slate-300 mb-2">請輸入您的姓名以載入名人堂：</p>
                 <div class="flex gap-1.5">
-                    <input type="text" id="player-name-input" maxlength="12" placeholder="匿名冒險者" class="flex-grow bg-slate-900 border border-slate-700 focus:border-indigo-400 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-500 outline-none">
-                    <button id="btn-submit-score" class="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold px-3 py-1 rounded-lg text-xs hover:scale-105 active:scale-95 transition-all">送出</button>
-                </div>
-            </div>
-            
             <button id="modal-restart" class="w-full py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-extrabold shadow-lg shadow-indigo-500/25 transition-all duration-300 text-xs">
                 <i class="fa-solid fa-rotate-left mr-1"></i> 重新開始挑戰
             </button>
@@ -428,17 +434,17 @@
         <div class="glass-panel p-4 rounded-2xl max-w-xs w-full border-slate-700/60 shadow-2xl transform scale-95 transition-all duration-300">
             <div class="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-700/40">
                 <div>
-                    <h3 class="text-xs font-extrabold text-white flex items-center gap-1.5">
+                    <h3 class="text-sm font-extrabold text-white flex items-center gap-1.5">
                         <i class="fa-solid fa-trophy text-amber-400"></i>
                         榮譽名人堂 (前 10 名)
                     </h3>
-                    <span id="leaderboard-subtitle" class="text-[9px] text-indigo-400 font-bold block mt-0.5">無限時間模式</span>
+                    <span id="leaderboard-subtitle" class="text-[11px] text-indigo-400 font-bold block mt-0.5">無限時間模式</span>
                 </div>
                 <button id="btn-close-leaderboard" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-sm"></i></button>
             </div>
             
             <!-- 尺寸過濾標籤 -->
-            <div class="flex gap-1 mb-2.5 text-[9px] font-bold">
+            <div class="flex gap-1 mb-2.5 text-xs font-bold">
                 <button data-filter="5" class="leaderboard-tab-btn flex-1 py-1 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition">5x5 快速</button>
                 <button data-filter="9" class="leaderboard-tab-btn flex-1 py-1 rounded bg-indigo-600 text-white shadow">9x9 經典</button>
                 <button data-filter="12" class="leaderboard-tab-btn flex-1 py-1 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 transition">12x12 挑戰</button>
@@ -459,12 +465,12 @@
     <div id="rules-modal" class="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-all duration-300">
         <div class="glass-panel p-4 rounded-2xl max-w-xs w-full border-slate-700/60 shadow-2xl transform scale-95 transition-all duration-300">
             <div class="flex justify-between items-center mb-2.5 pb-1.5 border-b border-slate-700/40">
-                <h3 class="text-xs font-extrabold text-white flex items-center gap-1.5">
+                <h3 class="text-sm font-extrabold text-white flex items-center gap-1.5">
                     <i class="fa-solid fa-circle-question text-indigo-400"></i> 遊戲規則與得分祕技
                 </h3>
                 <button id="btn-close-rules" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-sm"></i></button>
             </div>
-            <div class="space-y-2 text-[10px] text-slate-300 leading-relaxed max-h-72 overflow-y-auto pr-1">
+            <div class="space-y-2 text-xs text-slate-300 leading-relaxed max-h-72 overflow-y-auto pr-1">
                 <div class="flex gap-2 bg-slate-800/40 p-2 rounded-lg border border-slate-700/30">
                     <div class="text-indigo-400 mt-0.5"><i class="fa-solid fa-chess-board"></i></div>
                     <p>自由選擇 <strong>5x5、9x9 或 12x12</strong> 規格。小規格會自動篩選大型方塊以防秒GG。</p>
@@ -499,11 +505,11 @@
                         • 2 行：<strong>400 分</strong> (100 * 2²)<br>
                         • 3 行：<strong>900 分</strong> (100 * 3²)<br>
                         • 4 行：<strong>1600 分</strong> (100 * 4²)<br>
-                        <span class="text-[9px] text-amber-300/80 italic">技巧：多向同時疊加消除可解鎖超高回報！</span>
+                        <span class="text-[11px] text-amber-300/80 italic">技巧：多向同時疊加消除可解鎖超高回報！</span>
                     </p>
                 </div>
             </div>
-            <button id="btn-rules-ok" class="w-full mt-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold transition duration-200 text-xs">
+            <button id="btn-rules-ok" class="w-full mt-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold transition duration-200 text-sm">
                 我明白了，開始玩！
             </button>
         </div>
@@ -1217,7 +1223,7 @@
                     if (block) {
                         activeCount++;
                         const blockEl = document.createElement('div');
-                        blockEl.className = 'absolute cursor-grab block-preview-scale flex flex-col items-center justify-center p-1 select-none';
+                        blockEl.className = 'absolute inset-0 cursor-grab block-preview-scale flex flex-col items-center justify-center p-2 select-none';
                         blockEl.setAttribute('data-pool-index', i);
                         
                         if (this.selectedPoolIndex === i) {
@@ -1229,7 +1235,7 @@
                         blockGrid.className = 'grid gap-[2px]';
                         blockGrid.style.gridTemplateColumns = `repeat(${shape[0].length}, minmax(0, 1fr))`;
 
-                        const cellSize = 'w-[18px] h-[18px] md:w-[22px] md:h-[22px]';
+                        const cellSize = 'w-[20px] h-[20px] md:w-[24px] md:h-[24px]';
 
                         for (let r = 0; r < shape.length; r++) {
                             for (let c = 0; c < shape[r].length; c++) {
@@ -1250,7 +1256,7 @@
                         if (this.difficulty === 'easy') {
                             const rotateBtn = document.createElement('button');
                             rotateBtn.className = 'absolute top-1 right-1 z-35 w-6 h-6 rounded-full bg-slate-900/95 border border-slate-700/65 text-emerald-400 hover:text-white hover:bg-emerald-600 hover:border-emerald-400 flex items-center justify-center shadow-lg transition-all duration-200 active:scale-90 group';
-                            rotateBtn.innerHTML = '<i class="fa-solid fa-rotate text-[10px] group-hover:rotate-180 transition-transform duration-500"></i>';
+                            rotateBtn.innerHTML = '<i class="fa-solid fa-rotate text-xs group-hover:rotate-180 transition-transform duration-500"></i>';
                             rotateBtn.title = '旋轉方塊';
                             rotateBtn.addEventListener('pointerdown', (e) => {
                                 e.stopPropagation();
@@ -1759,10 +1765,10 @@
                         row.className = `flex justify-between items-center p-2 rounded-xl text-xs ${index === 0 ? 'bg-amber-500/10 border border-amber-500/25' : 'bg-slate-900/60 border border-slate-800/30'}`;
                         
                         // 勳章樣式
-                        let medal = `<span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center font-bold text-[10px] text-slate-400">${index + 1}</span>`;
-                        if (index === 0) medal = `<span class="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-extrabold text-[10px] shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crown text-[8px]"></i></span>`;
-                        if (index === 1) medal = `<span class="w-5 h-5 rounded-full bg-slate-300 text-slate-950 flex items-center justify-center font-extrabold text-[10px] shadow-lg shadow-slate-300/20">2</span>`;
-                        if (index === 2) medal = `<span class="w-5 h-5 rounded-full bg-orange-400 text-slate-950 flex items-center justify-center font-extrabold text-[10px] shadow-lg shadow-orange-500/20">3</span>`;
+                        let medal = `<span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-400">${index + 1}</span>`;
+                        if (index === 0) medal = `<span class="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-extrabold text-xs shadow-lg shadow-amber-500/20"><i class="fa-solid fa-crown text-[9px]"></i></span>`;
+                        if (index === 1) medal = `<span class="w-5 h-5 rounded-full bg-slate-300 text-slate-950 flex items-center justify-center font-extrabold text-xs shadow-lg shadow-slate-300/20">2</span>`;
+                        if (index === 2) medal = `<span class="w-5 h-5 rounded-full bg-orange-400 text-slate-950 flex items-center justify-center font-extrabold text-xs shadow-lg shadow-orange-500/20">3</span>`;
 
                         row.innerHTML = `
                             <div class="flex items-center gap-2">
@@ -1771,7 +1777,7 @@
                             </div>
                             <div class="text-right">
                                 <span class="font-black text-amber-300 block">${item.score}</span>
-                                <span class="text-[8px] text-slate-500 block">${item.date || ""}</span>
+                                <span class="text-[10px] text-slate-500 block">${item.date || ""}</span>
                             </div>
                         `;
                         listContainer.appendChild(row);
