@@ -1175,12 +1175,63 @@
                 const activeBlocks = this.pool.filter(b => b !== null);
                 if (activeBlocks.length === 0) return false;
 
+                // 建立虛擬棋盤，預先排除已經填滿（即將消除）的整行或整列，
+                // 這樣在消除動畫尚未完成時也能正確判定是否有空間可以放置。
+                const virtualBoard = this.board.map(row => [...row]);
+                const rowsToClear = [];
+                const colsToClear = [];
+
+                for (let r = 0; r < this.size; r++) {
+                    if (virtualBoard[r].every(cell => cell !== 0)) {
+                        rowsToClear.push(r);
+                    }
+                }
+
+                for (let c = 0; c < this.size; c++) {
+                    let isColFull = true;
+                    for (let r = 0; r < this.size; r++) {
+                        if (virtualBoard[r][c] === 0) {
+                            isColFull = false;
+                            break;
+                        }
+                    }
+                    if (isColFull) {
+                        colsToClear.push(c);
+                    }
+                }
+
+                rowsToClear.forEach(r => virtualBoard[r].fill(0));
+                colsToClear.forEach(c => {
+                    for (let r = 0; r < this.size; r++) {
+                        virtualBoard[r][c] = 0;
+                    }
+                });
+
+                const canPlaceVirtual = (shape, startRow, startCol) => {
+                    for (let r = 0; r < shape.length; r++) {
+                        for (let c = 0; c < shape[r].length; c++) {
+                            if (shape[r][c] === 1) {
+                                const targetRow = startRow + r;
+                                const targetCol = startCol + c;
+
+                                if (targetRow < 0 || targetRow >= this.size || targetCol < 0 || targetCol >= this.size) {
+                                    return false;
+                                }
+                                if (virtualBoard[targetRow][targetCol] !== 0) {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                    return true;
+                };
+
                 for (const block of activeBlocks) {
                     const shapesToCheck = this.difficulty === 'easy' ? this.getRotations(block.shape) : [block.shape];
                     for (const shape of shapesToCheck) {
                         for (let r = 0; r < this.size; r++) {
                             for (let c = 0; c < this.size; c++) {
-                                if (this.canPlace(shape, r, c)) {
+                                if (canPlaceVirtual(shape, r, c)) {
                                     return false; 
                                 }
                             }
